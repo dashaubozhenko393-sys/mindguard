@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MindGuard — ИИ-поддержка студентов</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);--bg:#f6f2fb;--card:#fff;--tx:#1d2140;--mut:#6b7090;--ac:#8a2be2;--ac2:#ff5a1f;--or:#ff5a1f;--bd:#e2e4f3;--me:#6c5ce7;--ai:#eceefb}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b0e20;--card:#151933;--tx:#e8eaff;--mut:#8f95c2;--ac:#8b7dff;--ac2:#2ee6d0;--bd:#252a52;--me:#6c5ce7;--ai:#1f2447}}
+:root[data-theme="dark"]{--bg:#0b0e20;--card:#151933;--tx:#e8eaff;--mut:#8f95c2;--ac:#8b7dff;--ac2:#2ee6d0;--bd:#252a52;--me:#6c5ce7;--ai:#1f2447}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5;padding-bottom:90px}
+.w{max-width:720px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:16px;box-shadow:0 8px 28px rgba(80,70,160,.10);margin-bottom:12px}
+h2{font-size:18px;margin:0 0 8px;color:var(--or)}
+.sec{display:none}.sec.on{display:block}
+nav{position:fixed;left:0;right:0;bottom:0;top:auto;display:flex;justify-content:space-around;background:var(--card);border-top:1px solid var(--bd);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+nav button{flex:1;border:0;background:none;color:var(--mut);font-size:11px;padding:6px 2px;border-radius:12px;cursor:pointer}
+nav button b{display:block;font-size:22px;font-weight:400}
+nav button.on{color:var(--ac);background:color-mix(in srgb,var(--ac) 12%,transparent)}
+.moods{display:flex;gap:8px;justify-content:space-between}
+.moods button{flex:1;font-size:26px;border:1px solid var(--bd);background:var(--bg);border-radius:14px;padding:8px 0;cursor:pointer}
+.moods button.on{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 18%,transparent)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:20px;padding:6px 12px;font-size:13px;cursor:pointer}
+#log{max-height:46vh;overflow-y:auto;padding:4px 0}
+.msg{padding:10px 14px;border-radius:18px;margin:8px 0;white-space:pre-wrap;max-width:88%;animation:in .25s}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.me{background:var(--me);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+.ai{background:var(--ai);border-bottom-left-radius:4px}
+textarea{width:100%;min-height:80px;border:1px solid var(--bd);border-radius:14px;padding:12px;background:var(--bg);color:var(--tx);font:inherit;resize:vertical}
+.btn{border:0;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;padding:12px 20px;border-radius:14px;font-size:15px;cursor:pointer;margin-top:10px;width:100%}
+.btn:disabled{opacity:.6}.btn.g{background:var(--bg);color:var(--tx);border:1px solid var(--bd);width:auto}
+.note{font-size:12px;color:var(--mut);margin-top:10px}
+.entry{border-bottom:1px solid var(--bd);padding:10px 0}.entry small{color:var(--mut)}
+.circ{width:140px;height:140px;border-radius:50%;margin:34px auto;background:linear-gradient(135deg,var(--ac),var(--ac2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;transition:transform 1s linear;box-shadow:0 0 40px color-mix(in srgb,var(--ac) 50%,transparent)}
+.bar{height:12px;border-radius:8px;background:var(--bg);overflow:hidden;margin:4px 0 12px}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ac),var(--ac2))}
+.c{text-align:center}
+.sos{background:color-mix(in srgb,#e17055 14%,transparent);border:1px solid #e17055;border-radius:14px;padding:10px 12px;font-size:13px;margin-top:10px}
+.help{border:2px solid #e17055;background:color-mix(in srgb,#e17055 12%,var(--card));border-radius:16px;padding:12px 14px;margin:8px 0;animation:in .25s}
+.help h3{margin:0 0 6px;font-size:15px}.help a{display:inline-block;margin:4px 6px 0 0;padding:8px 14px;border-radius:12px;background:#e17055;color:#fff;text-decoration:none;font-weight:600}
+.help small{display:block;margin-top:6px;color:var(--mut)}
+.hero{position:relative;overflow:hidden;text-align:center;color:#fff;padding:34px 16px 90px;background:radial-gradient(2px 2px at 30px 40px,#fff,transparent),radial-gradient(1.5px 1.5px at 120px 90px,#fff,transparent),radial-gradient(2px 2px at 200px 20px,#fff,transparent),radial-gradient(1.5px 1.5px at 80px 130px,#fff,transparent),linear-gradient(#2b0a4d,#7a1fa8 60%,#c552e0);background-size:220px 160px,220px 160px,220px 160px,220px 160px,100% 100%}
+.hero h1{margin:6px 0;font-size:34px;position:relative;z-index:2}.hero h1 b{color:#ff7a3d}.hero p{margin:4px auto;max-width:420px;position:relative;z-index:2;opacity:.95}
+.pl{position:absolute;border-radius:50%}
+.p1{width:56px;height:56px;left:8px;top:190px;background:radial-gradient(circle at 35% 35%,#ffe27a,#ffc21a);box-shadow:0 0 0 10px rgba(255,255,255,.14)}
+.p2{width:44px;height:44px;right:12px;top:200px;background:radial-gradient(circle at 35% 35%,#bfe9ff,#6fb6e8);box-shadow:0 0 0 8px rgba(255,255,255,.14)}
+.p3{width:46px;height:46px;right:30px;top:14px;background:radial-gradient(circle at 35% 35%,#ffc0cb,#f08a9d)}
+.p3:after{content:"";position:absolute;left:-18px;right:-18px;top:18px;height:12px;border:3px solid rgba(255,255,255,.55);border-radius:50%;transform:rotate(-15deg)}
+.city{position:absolute;left:0;bottom:0;width:100%;height:70px}
+.sec{padding-top:2px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.cal b{font-size:11px;color:var(--mut)}
+.cal button{aspect-ratio:1;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font-size:13px;cursor:pointer;padding:0}
+.cal button.t{outline:2px solid var(--or)}.cal button.s{border-color:var(--ac);border-width:2px}
+.row{display:flex;gap:8px;align-items:center;margin:6px 0}.row input[type=text],.row input[type=time]{flex:1;border:1px solid var(--bd);border-radius:10px;padding:9px;background:var(--bg);color:var(--tx);font:inherit}
+.row input[type=range]{flex:1}
+.ban{position:fixed;left:10px;right:10px;top:calc(10px + env(safe-area-inset-top,0px));z-index:9;background:var(--or);color:#fff;padding:14px;border-radius:14px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+svg{width:100%;height:auto;display:block}
+</style>
+</head>
+<body>
+<div class="hero"><div class="pl p1"></div><div class="pl p2"></div><div class="pl p3"></div>
+<h1>Mind<b>Guard</b></h1><p style="font-size:18px;font-weight:600">Большая поддержка в твоём кармане</p><p>ИИ-ассистент психологической разгрузки для студентов</p>
+<svg class="city" viewBox="0 0 800 70" preserveAspectRatio="none" fill="#5a1a85"><rect x="20" y="30" width="40" height="40"/><rect x="70" y="10" width="26" height="60"/><rect x="110" y="35" width="60" height="35"/><path d="M300 70V40a60 40 0 0 1 120 0v30z" fill="#fff" opacity=".85"/><path d="M320 70V45a40 28 0 0 1 80 0v25z"/><rect x="440" y="5" width="30" height="65"/><rect x="480" y="25" width="50" height="45"/><rect x="560" y="15" width="34" height="55"/><rect x="610" y="38" width="70" height="32"/><rect x="700" y="20" width="40" height="50"/><rect x="750" y="40" width="50" height="30"/></svg></div>
+<div class="w">
+
+<div class="sec on" id="chat">
+<div class="card"><h2>Как ты сейчас?</h2>
+<div class="moods" id="moods"><button data-v="1">😫</button><button data-v="2">😟</button><button data-v="3">😐</button><button data-v="4">🙂</button><button data-v="5">😄</button></div></div>
+<div class="card">
+<div id="log"><div class="msg ai">Привет. Расскажи, что сейчас давит: дедлайны, сессия, усталость? Я рядом и выслушаю.</div></div>
+<div class="chips" id="chips"><button>Дедлайны горят</button><button>Боюсь экзамена</button><button>Не могу уснуть</button><button>Нет мотивации</button></div>
+<textarea id="inp" placeholder="Выговорись, что наболело..."></textarea>
+<button class="btn" id="send">Отправить</button>
+<div class="sos"><b>Номера помощи в Казахстане (бесплатно):</b><br>🚨 112 — единая служба спасения · 🚑 103 — скорая · 👮 102 — полиция · 💙 150 — телефон доверия (психологическая помощь) · 👧 111 — детский телефон доверия<br>👩‍⚕️ Психолог вуза: Айгерим Маратовна, Satbayev University, ГМК-218, <a href="tel:+77026729961">+7 702 672 9961</a></div>
+<p class="note">Это ИИ, а не психолог, и он не ставит диагнозов.</p>
+</div></div>
+
+<div class="sec" id="calsec"><div class="card"><div class="row"><button class="btn g" id="pm">‹</button><h2 id="mt" style="flex:1;text-align:center;margin:0"></h2><button class="btn g" id="nm">›</button></div>
+<div class="cal" id="cal"></div><p class="note">Цвет дня: красный — тяжело, зелёный — хорошо.</p></div>
+<div class="card" id="day" style="display:none"><h2 id="dt"></h2>
+<div class="row">🧠 Психика <input type="range" id="rm" min="1" max="5" value="3"><span id="vm">3</span></div>
+<div class="row">💪 Тело <input type="range" id="rp" min="1" max="5" value="3"><span id="vp">3</span></div>
+<textarea id="rn" placeholder="Заметка за день..."></textarea><button class="btn" id="dsave">Сохранить день</button></div>
+<div class="card"><h2>⏰ Напоминания</h2><div class="row"><input type="time" id="rt" value="21:00"><input type="text" id="rx" placeholder="Например: выпить воды"></div>
+<button class="btn" id="radd">Добавить напоминание</button><div id="rl"></div>
+<p class="note">Напоминания срабатывают, пока страница открыта. Настоящий будильник на телефон можно поставить в приложении Claude: напиши «поставь будильник на 7:30».</p></div></div>
+<div class="sec" id="diary">
+<div class="card"><h2>Динамика самочувствия</h2><div id="chart"></div><div class="note" id="avg"></div></div>
+<div class="card"><h2>Мои записи</h2><div id="list"></div><button class="btn g" id="clr">Очистить</button>
+<p class="note">Данные хранятся только в твоём браузере.</p></div></div>
+
+<div class="sec" id="breath"><div class="card c"><h2>Экстренная разгрузка</h2>
+<p class="note">Квадратное дыхание: вдох 4 — пауза 4 — выдох 4 — пауза 4</p>
+<div class="circ" id="circ">Готов(-а)?</div><button class="btn" id="bgo">Начать</button></div></div>
+
+<div class="sec" id="stats"><div class="card"><h2>Анонимная статистика сообщества</h2>
+<p class="note">Демонстрационные данные: эмуляция аналитики для вуза.</p>
+<div>Чувствуют выгорание сегодня: 38%</div><div class="bar"><i style="width:38%"></i></div>
+<div>Дедлайны — главный триггер: 46%</div><div class="bar"><i style="width:46%"></i></div>
+<div>Недосып: 31%</div><div class="bar"><i style="width:31%"></i></div>
+<div>Страх экзаменов: 24%</div><div class="bar"><i style="width:24%"></i></div></div><div class="card"><h2>💭 Стена анонимных мыслей</h2><textarea id="wt" placeholder="Напиши мысль анонимно..."></textarea><button class="btn" id="wp">Опубликовать</button><div id="wl"></div><p class="note">Мысли хранятся в твоём браузере, без имени.</p></div></div></div>
+</div>
+
+<nav id="tabs">
+<button data-t="chat" class="on"><b>💬</b>Чат</button><button data-t="calsec"><b>📅</b>Календарь</button><button data-t="diary"><b>📓</b>Записи</button><button data-t="breath"><b>🌬️</b>Дыхание</button><button data-t="stats"><b>💭</b>Сообщество</button>
+</nav>
+
+<script>
+const $=s=>document.querySelector(s);
+let store=[],moods=[];
+try{store=JSON.parse(localStorage.getItem('mg')||'[]');moods=JSON.parse(localStorage.getItem('mgm')||'[]')}catch(e){}
+const save=()=>{try{localStorage.setItem('mg',JSON.stringify(store));localStorage.setItem('mgm',JSON.stringify(moods))}catch(e){}};
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.sec').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
+  if(b.dataset.t==='diary')renderDiary();
+});
+document.querySelectorAll('#moods button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#moods button').forEach(x=>x.classList.toggle('on',x===b));
+  moods.push({d:new Date().toLocaleDateString('ru-RU'),v:+b.dataset.v});save();
+});
+document.querySelectorAll('#chips button').forEach(b=>b.onclick=()=>{$('#inp').value=b.textContent+'. ';$('#inp').focus()});
+function renderDiary(){
+  const l=$('#list');l.innerHTML='';
+  if(!store.length)l.textContent='Пока пусто.';
+  store.slice().reverse().forEach(e=>{
+    const d=document.createElement('div');d.className='entry';
+    const s=document.createElement('small');s.textContent=e.d;
+    const a=document.createElement('div');a.textContent='Я: '+e.q;
+    const b=document.createElement('div');b.textContent='MindGuard: '+e.a;b.style.color='var(--mut)';
+    d.append(s,a,b);l.append(d);
+  });
+  const m=moods.slice(-10),ch=$('#chart');
+  if(!m.length){ch.textContent='Отметь настроение на вкладке «Чат» — здесь появится график.';$('#avg').textContent='';return}
+  const em=['','😫','😟','😐','🙂','😄'];
+  let h='<svg viewBox="0 0 300 120">';
+  m.forEach((x,i)=>{const bh=x.v*18,bx=10+i*29;
+    h+='<rect x="'+bx+'" y="'+(100-bh)+'" width="20" height="'+bh+'" rx="6" fill="#6c5ce7" opacity="'+(.4+x.v*.12)+'"/><text x="'+(bx+10)+'" y="115" font-size="9" text-anchor="middle" fill="#8f95c2">'+em[x.v]+'</text>'});
+  ch.innerHTML=h+'</svg>';
+  const av=m.reduce((a,x)=>a+x.v,0)/m.length;
+  $('#avg').textContent='Среднее за последние отметки: '+av.toFixed(1)+' из 5'+(av<2.5?'. Похоже, нагрузка высокая — попробуй дыхание и небольшой отдых.':'');
+}
+$('#clr').onclick=()=>{store=[];moods=[];save();renderDiary()};
+const SYS='Ты — эмпатичный ИИ-консультант для студентов (проект MindGuard). Снижай стресс, помогай с выгоранием и дедлайнами. Используй техники КПТ и заземления. Отвечай по-русски, мягко, коротко (до 120 слов), без банального позитива: сначала отрази чувства, назови возможный триггер выгорания, дай 1–2 маленьких конкретных шага. Ты не врач и не ставишь диагнозов. Если человек пишет о самоповреждении, суицидальных мыслях или тяжёлой депрессии — тепло отреагируй и посоветуй срочно обратиться к психологу университета, близкому человеку или на местную линию экстренной помощи.';
+
+const NUM={'112':'Единая служба спасения','103':'Скорая помощь','102':'Полиция','150':'Телефон доверия','111':'Детский телефон доверия'};
+const RULES=[
+ {re:/суицид|самоубий|убить себя|убью себя|покончить с собой|не хочу жить|хочу умереть|жить не хочу|навредить себе|порезать себя|режу себя|селфхарм|өзімді өлтір|өлгім келеді|өмір сүргім келмейді/,
+  t:'Мне важно, что ты написал(-а) об этом. Ты не один(-а)(-а) — позвони прямо сейчас:',n:['150','112','103'],x:'Если есть риск, что ты причинишь себе вред сейчас, звони 112 или 103 и не оставайся один(-а): позови рядом человека.'},
+ {re:/бьет|бьёт|избива|насили|изнасил|домогает|угрожает мне|побои|боюсь за свою жизнь/,
+  t:'Твоя безопасность важнее всего. Если угрожает опасность — звони:',n:['102','112','111'],x:'Постарайся уйти в безопасное место и сообщить близкому человеку.'},
+ {re:/паническ|задыхаюсь|нечем дышать|сердце колотится|сердце бьется|боль в груди|потерял сознание|приступ/,
+  t:'Если тебе физически плохо, не жди — позвони:',n:['103','112'],x:'Пока ждёшь помощь, сядь, расслабь плечи и дыши медленно: вдох 4 секунды, выдох 6. На вкладке «Дыхание» есть таймер.'}
+];
+function checkHelp(q){
+  const t=q.toLowerCase().replace(/ё/g,'е');
+  for(const r of RULES){ if(r.re.test(t)){
+    const d=document.createElement('div');d.className='help';
+    const h=document.createElement('h3');h.textContent='💛 '+r.t;d.append(h);
+    r.n.forEach(k=>{const a=document.createElement('a');a.href='tel:'+k;a.textContent=k+' · '+NUM[k];d.append(a)});
+    const sm=document.createElement('small');sm.textContent=r.x;d.append(sm);
+    $('#log').append(d);$('#log').scrollTop=1e6;return true}}
+  return false;
+}
+
+let days={},rem=[];
+try{days=JSON.parse(localStorage.getItem('mgc')||'{}');rem=JSON.parse(localStorage.getItem('mgr')||'[]')}catch(e){}
+const sv=()=>{try{localStorage.setItem('mgc',JSON.stringify(days));localStorage.setItem('mgr',JSON.stringify(rem))}catch(e){}};
+const pad=n=>String(n).padStart(2,'0');
+let cur=new Date(),sel=null;
+const MN=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+function renderCal(){
+  const y=cur.getFullYear(),m=cur.getMonth(),g=$('#cal');g.innerHTML='';
+  $('#mt').textContent=MN[m]+' '+y;
+  ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].forEach(d=>{const e=document.createElement('b');e.textContent=d;g.append(e)});
+  const f=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate(),tk=new Date();
+  for(let i=0;i<f;i++)g.append(document.createElement('span'));
+  for(let d=1;d<=n;d++){
+    const k=y+'-'+pad(m+1)+'-'+pad(d),b=document.createElement('button'),e=days[k];
+    b.textContent=d;
+    if(e){const a=(e.m+e.p)/2;b.style.background='hsl('+((a-1)*30)+',70%,65%)';b.style.color='#111'}
+    if(tk.getFullYear()==y&&tk.getMonth()==m&&tk.getDate()==d)b.classList.add('t');
+    if(k===sel)b.classList.add('s');
+    b.onclick=()=>pick(k);g.append(b);
+  }
+}
+function pick(k){
+  sel=k;const e=days[k]||{m:3,p:3,n:''};
+  $('#day').style.display='block';$('#dt').textContent=k.split('-').reverse().join('.');
+  $('#rm').value=e.m;$('#rp').value=e.p;$('#vm').textContent=e.m;$('#vp').textContent=e.p;$('#rn').value=e.n;renderCal();
+}
+$('#rm').oninput=e=>$('#vm').textContent=e.target.value;
+$('#rp').oninput=e=>$('#vp').textContent=e.target.value;
+$('#dsave').onclick=()=>{if(!sel)return;days[sel]={m:+$('#rm').value,p:+$('#rp').value,n:$('#rn').value};sv();renderCal()};
+$('#pm').onclick=()=>{cur=new Date(cur.getFullYear(),cur.getMonth()-1,1);renderCal()};
+$('#nm').onclick=()=>{cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);renderCal()};
+function renderRem(){
+  const l=$('#rl');l.innerHTML='';
+  rem.forEach((r,i)=>{const d=document.createElement('div');d.className='row';
+    const t=document.createElement('span');t.style.flex=1;t.textContent='⏰ '+r.t+' — '+r.x;
+    const b=document.createElement('button');b.className='btn g';b.style.marginTop=0;b.textContent='✕';
+    b.onclick=()=>{rem.splice(i,1);sv();renderRem()};d.append(t,b);l.append(d)});
+}
+$('#radd').onclick=()=>{const t=$('#rt').value,x=$('#rx').value.trim()||'Напоминание';if(!t)return;rem.push({t,x,last:''});sv();renderRem();$('#rx').value='';
+  try{if('Notification' in window&&Notification.permission==='default')Notification.requestPermission()}catch(e){}};
+function beep(){try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator();o.frequency.value=880;o.connect(c.destination);o.start();setTimeout(()=>o.stop(),600)}catch(e){}}
+setInterval(()=>{
+  const n=new Date(),hm=pad(n.getHours())+':'+pad(n.getMinutes()),dk=n.toDateString();
+  rem.forEach(r=>{if(r.t===hm&&r.last!==dk){r.last=dk;sv();
+    const b=document.createElement('div');b.className='ban';b.textContent='⏰ '+r.x+' (нажми, чтобы закрыть)';b.onclick=()=>b.remove();document.body.append(b);beep();
+    try{if(Notification.permission==='granted')new Notification('MindGuard',{body:r.x})}catch(e){}}});
+},15000);
+renderCal();renderRem();
+
+const LR=[[/дедлайн|сдать|не успеваю|горит/,'Похоже, давят сроки. Выпиши все задачи, выбери одну самую маленькую и займись ею всего 15 минут. Остальное подождёт: сейчас важен только этот шаг.'],
+[/экзамен|сесси|зачет|зачёт/,'Страх перед экзаменом — частая реакция на высокую ставку. Попробуй квадратное дыхание на вкладке «Дыхание» и разбей подготовку на блоки по 25 минут с короткими паузами.'],
+[/уснуть|сон|бессонн|недосып/,'Когда не спится, помогает записать тревожные мысли на бумагу, убрать телефон за 30 минут до сна и сделать медленный выдох длиннее вдоха.'],
+[/мотивац|лень|не хочу|выгора|устал|усталост/,'Усталость и пропавшая мотивация — сигнал, что нужен отдых, а не ругань на себя. Сделай одно крошечное дело и отметь его: это возвращает чувство контроля.'],
+[/трев|страшно|паник|волную/,'Попробуй заземление 5-4-3-2-1: назови 5 предметов, которые видишь, 4 — которых касаешься, 3 звука, 2 запаха, 1 вкус. Это возвращает в «здесь и сейчас».']];
+function local(q){const t=q.toLowerCase().replace(/ё/g,'е');for(const r of LR)if(r.re?0:r[0].test(t))return r[1];return 'Спасибо, что поделился(-ась). Расскажи подробнее: что именно сейчас тяжелее всего? А пока попробуй три медленных вдоха и выдоха. Я автономный помощник, поэтому для серьёзных переживаний лучше поговорить с психологом.'}
+
+let wall=[];try{wall=JSON.parse(localStorage.getItem('mgw')||'[]')}catch(e){}
+function rw(){const l=$('#wl');l.innerHTML='';wall.slice().reverse().forEach(t=>{const d=document.createElement('div');d.className='msg ai';d.textContent=t;l.append(d)})}
+$('#wp').onclick=()=>{const t=$('#wt').value.trim();if(!t)return;wall.push(t);try{localStorage.setItem('mgw',JSON.stringify(wall))}catch(e){}$('#wt').value='';rw()};rw();
+let hist=[];
+function add(c,t){const m=document.createElement('div');m.className='msg '+c;m.textContent=t;$('#log').append(m);$('#log').scrollTop=1e6;return m}
+$('#send').onclick=async()=>{
+  const q=$('#inp').value.trim();if(!q)return;
+  $('#inp').value='';add('me',q);checkHelp(q);
+  const out=add('ai','Думаю…');$('#send').disabled=true;
+  try{
+    const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q,history:hist.slice(-6)})});
+    if(!resp.ok)throw new Error('api');
+    const r={text:(await resp.json()).reply};
+    out.textContent=r.text;hist.push({q,a:r.text});
+    store.push({d:new Date().toLocaleString('ru-RU'),q,a:r.text});save();
+  }catch(e){
+    out.textContent=local(q);
+  }
+  $('#send').disabled=false;
+};
+let run=null;
+$('#bgo').onclick=()=>{
+  const c=$('#circ'),b=$('#bgo');
+  if(run){clearInterval(run);run=null;c.style.transform='scale(1)';c.textContent='Готов(-а)?';b.textContent='Начать';return}
+  b.textContent='Остановить';
+  const ph=[['Вдох',1.5],['Пауза',1.5],['Выдох',1],['Пауза',1]];let i=0,n=4;
+  const step=()=>{c.style.transform='scale('+ph[i][1]+')';c.textContent=ph[i][0]+' '+n};
+  step();run=setInterval(()=>{n--;if(n<1){i=(i+1)%4;n=4}step()},1000);
+};
+</script>
+</body>
+</html>
