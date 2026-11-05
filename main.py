@@ -1,18 +1,19 @@
 import os
 import random
 import asyncio
+import base64
 
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()  # ключ только на сервере
+API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 BASE = "https://generativelanguage.googleapis.com/v1beta"
 FIRST = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-flash-latest",
                      "gemini-flash-lite-latest"] if m]
-WORKING = None   # запоминаем рабочую модель
-DISCOVERED = []  # модели, найденные у самого Google
+WORKING = None
+DISCOVERED = []
 
 SYSTEM = (
     "Ты — эмпатичный ИИ-консультант для студентов (проект MindGuard). "
@@ -23,14 +24,17 @@ SYSTEM = (
     "и поддержи разговор (спроси, что порадовало), без советов про стресс. "
     "Если стресс, тревога или выгорание — сначала отрази чувства, назови возможный триггер, "
     "дай 1–2 маленьких конкретных шага (КПТ, заземление, дыхание) "
+    "и мягко предложи обратиться к психологу университета: Айгерим Маратовна, Satbayev University, "
+    "ГМК-218, тел. +7 702 672 9961 (предлагай это не в каждом ответе, а когда состояние действительно тяжёлое). "
     "Пол собеседника неизвестен: используй гендерно-нейтральные окончания со скобками "
     "(например, «прошел(-а)», «устал(-а)», «рад(-а)», «один(-а)»), но не перегружай текст. "
     "Ты не врач и не ставишь диагнозов. "
     "При мыслях о самоповреждении или суициде тепло отреагируй, скажи, что человек важен, "
-    "и напомни: 150 (телефон доверия), 112 (служба спасения), 103 (скорая)."
+    "и напомни: 150 (телефон доверия), 112 (служба спасения), 103 (скорая). "
+    "Если пользователь прикрепляет изображение (фото конспекта, расписания, экрана), "
+    "распознай текст на нём и используй этот контекст для поддержки."
 )
 
-# Случайный «настрой» ответа — добавляется к каждому запросу, чтобы ответы не повторялись
 STYLES = [
     "Начни с короткой фразы, которая отражает чувство человека.",
     "Начни с вопроса, который помогает лучше понять ситуацию.",
@@ -48,14 +52,18 @@ SAFETY = [{"category": c, "threshold": "BLOCK_ONLY_HIGH"} for c in (
 
 app = FastAPI(title="MindGuard API")
 
-
 class Chat(BaseModel):
     message: str
     history: list[dict] = []
 
+class ChatImage(BaseModel):
+    message: str
+    image_b64: str
+
+class DataAnalysisReq(BaseModel):
+    data: str
 
 async def discover(c):
-    """Спрашиваем у Google, какие flash-модели доступны этому ключу."""
     global DISCOVERED
     if DISCOVERED:
         return DISCOVERED
@@ -72,9 +80,7 @@ async def discover(c):
         print("DISCOVER FAIL", e, flush=True)
     return DISCOVERED
 
-
 def extract(data):
-    """Достаём текст из ответа Gemini (все части, без служебных)."""
     cand = data["candidates"][0]
     parts = cand.get("content", {}).get("parts", [])
     text = "".join(p.get("text", "") for p in parts if not p.get("thought")).strip()
@@ -82,11 +88,10 @@ def extract(data):
         raise KeyError("empty")
     return text
 
-
 async def ask(payload):
     global WORKING
     attempts = []
-    async with httpx.AsyncClient(timeout=30) as c:
+    async with httpx.AsyncClient(timeout=60) as c: # Увеличили таймаут для картинок
         names = ([WORKING] if WORKING else []) + FIRST
         tried = set()
         for phase in (0, 1):
@@ -97,7 +102,7 @@ async def ask(payload):
                     continue
                 tried.add(model)
                 r = None
-                for _ in range(2):  # при 503/429 пробуем ещё раз
+                for _ in range(2):
                     try:
                         r = await c.post(f"{BASE}/models/{model}:generateContent", json=payload,
                                          headers={"x-goog-api-key": API_KEY})
@@ -124,7 +129,6 @@ async def ask(payload):
                 print("GEMINI FAIL", model, r.status_code, err, flush=True)
     return None, attempts
 
-
 @app.post("/api/chat")
 async def chat(body: Chat):
     if not API_KEY:
@@ -138,7 +142,6 @@ async def chat(body: Chat):
     payload = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": contents,
-        # запас по токенам, чтобы «размышления» модели не обрезали ответ
         "generationConfig": {"temperature": 1.0, "topP": 0.95, "maxOutputTokens": 1500},
         "safetySettings": SAFETY,
     }
@@ -147,23 +150,71 @@ async def chat(body: Chat):
         raise HTTPException(502, "Gemini недоступен")
     return {"reply": text}
 
+# --- НОВОЕ ДЛЯ 9 НЕДЕЛИ: Мультимодальность (Картинки) ---
+@app.post("/api/chat-image")
+async def chat_image(body: ChatImage):
+    if not API_KEY:
+        raise HTTPException(500, "GEMINI_API_KEY не задан")
+    
+    parts = [{"text": body.message or "Проанализируй это изображение в контексте учебы и моего настроения."}]
+    if "," in body.image_b64:
+        mime_type, b64_data = body.image_b64.split(",", 1)
+        mime = mime_type.split(":")[1].split(";")[0]
+        parts.append({"inlineData": {"mimeType": mime, "data": b64_data}})
+    
+    contents = [{"role": "user", "parts": parts}]
+    system = SYSTEM + " Ты анализируешь изображение. Опиши, что видишь, и дай поддерживающий совет."
+    
+    payload = {
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": contents,
+        "generationConfig": {"temperature": 0.9, "maxOutputTokens": 1500},
+        "safetySettings": SAFETY,
+    }
+    text, attempts = await ask(payload)
+    if text is None:
+        raise HTTPException(502, "Gemini не смог обработать картинку")
+    return {"reply": text}
+
+# --- НОВОЕ ДЛЯ 10 НЕДЕЛИ: Анализ данных (Data Insight) ---
+@app.post("/api/analyze-data")
+async def analyze_data(body: DataAnalysisReq):
+    if not API_KEY:
+        raise HTTPException(500, "GEMINI_API_KEY не задан")
+        
+    system = (
+        "Ты — аналитик данных и психолог в проекте MindGuard. "
+        "Тебе передают JSON с логами настроения студента за последнюю неделю. "
+        "Напиши краткий, поддерживающий отчет (Data Insight) на русском языке. "
+        "Найди закономерности (например, в какие дни было тяжелее всего, какие эмоции преобладают). "
+        "Дай 2 конкретных совета на основе этих данных. Не ставь диагнозов, будь эмпатичным."
+    )
+    
+    prompt = f"Вот данные о моем настроении за неделю: {body.data}. Проанализируй их и дай отчет."
+    
+    payload = {
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1000},
+        "safetySettings": SAFETY,
+    }
+    text, attempts = await ask(payload)
+    if text is None:
+        raise HTTPException(502, "Ошибка анализа данных")
+    return {"report": text}
 
 @app.get("/api/test")
 async def test():
-    """Открой в браузере /api/test — покажет, работает ли ключ."""
     payload = {"contents": [{"role": "user", "parts": [{"text": "Скажи «привет» одним словом"}]}]}
     text, attempts = await ask(payload) if API_KEY else (None, [])
     return {"ok": text is not None, "reply": text, "key_set": bool(API_KEY),
             "key_len": len(API_KEY), "key_start": API_KEY[:3], "attempts": attempts}
 
-
 @app.get("/healthz")
 def healthz():
     return {"ok": True}
 
-
 @app.get("/")
 def index():
-    # no-cache: после обновления файла браузер сразу берёт новую версию
     return FileResponse(os.path.join(os.path.dirname(__file__), "index.html"),
                         headers={"Cache-Control": "no-cache, must-revalidate"})

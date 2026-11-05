@@ -125,6 +125,8 @@ nav{background:var(--card);backdrop-filter:blur(18px);-webkit-backdrop-filter:bl
 <div id="log"><div class="msg ai">Привет. Расскажи, что сейчас давит: дедлайны, сессия, усталость? Я рядом и выслушаю.</div></div>
 <div class="chips" id="chips"><button>Дедлайны горят</button><button>Боюсь экзамена</button><button>Не могу уснуть</button><button>Нет мотивации</button></div>
 <textarea id="inp" placeholder="Выговорись, что наболело..."></textarea>
+<input type="file" id="img-file" accept="image/*" style="display:none">
+<button class="btn g" id="img-btn" style="margin-bottom:10px; width:100%; border: 1px dashed var(--ac);">📎 Прикрепить фото (расписание, конспект)</button>
 <button class="btn" id="send">Отправить</button>
 <p class="hint">Enter — отправить, Shift+Enter — новая строка</p>
 <div class="sos"><b>Номера помощи в Казахстане (бесплатно):</b><br>🚨 112 — единая служба спасения · 🚑 103 — скорая · 👮 102 — полиция · 💙 150 — телефон доверия (психологическая помощь) · 👧 111 — детский телефон доверия</div>
@@ -139,7 +141,11 @@ nav{background:var(--card);backdrop-filter:blur(18px);-webkit-backdrop-filter:bl
 <textarea id="rn" placeholder="Заметка за день..."></textarea><button class="btn" id="dsave">Сохранить день</button></div>
 <div class="card"><div class="row per"><button class="btn g on" id="pw">Неделя</button><button class="btn g" id="pmn">Месяц</button></div>
 <h2>График самочувствия</h2><div class="note lg"><i style="background:#7c6cf0"></i>Психика<i style="background:#ff6fb5"></i>Тело</div><div id="gr"></div>
-<h2>Эмоции за период</h2><div id="em"></div></div>
+<h2>Эмоции за период</h2><div id="em"></div>
+<hr style="border:0; border-top:1px solid var(--bd); margin: 15px 0;">
+<button class="btn" id="ai-analyze" style="background: linear-gradient(135deg, #ff5a1f, #8a2be2);">✨ ИИ-анализ моего самочувствия</button>
+<div id="ai-report" style="display:none; margin-top:15px; padding:15px; background:var(--bg); border-radius:14px; border:1px solid var(--ac); font-size:14px; line-height:1.5;"></div>
+</div>
 <div class="card"><h2>⏰ Напоминания</h2><div class="row"><input type="time" id="rt" value="21:00"><input type="text" id="rx" placeholder="Например: выпить воды"></div>
 <button class="btn" id="radd">Добавить напоминание</button><div id="rl"></div>
 <p class="note">Напоминания срабатывают, пока страница открыта. Настоящий будильник на телефон можно поставить в приложении Claude: напиши «поставь будильник на 7:30».</p></div></div>
@@ -359,6 +365,68 @@ $('#bgo').onclick=()=>{
   const ph=[['Вдох',1.5],['Пауза',1.5],['Выдох',1],['Пауза',1]];let i=0,n=4;
   const step=()=>{c.style.transform='scale('+ph[i][1]+')';c.textContent=ph[i][0]+' '+n};
   step();run=setInterval(()=>{n--;if(n<1){i=(i+1)%4;n=4}step()},1000);
+};
+// --- ЛОГИКА ДЛЯ 9 НЕДЕЛИ (КАРТИНКИ) ---
+$('#img-btn').onclick = () => $('#img-file').click();
+$('#img-file').onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const b64 = ev.target.result;
+    add('me', '📷 [Загружено фото: ' + file.name + ']');
+    const out = add('ai', 'Анализирую картинку...');
+    $('#send').disabled = true;
+    try {
+      const resp = await fetch('/api/chat-image', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: $('#inp').value.trim() || "Что ты видишь на фото? Помоги мне с этим.", image_b64: b64})
+      });
+      if (!resp.ok) throw new Error('api');
+      const r = await resp.json();
+      out.textContent = r.reply;
+      $('#inp').value = '';
+    } catch (err) {
+      out.textContent = "Не удалось загрузить картинку. Проверь интернет.";
+    }
+    $('#send').disabled = false;
+    e.target.value = '';
+  };
+  reader.readAsDataURL(file);
+};
+
+// --- ЛОГИКА ДЛЯ 10 НЕДЕЛИ (АНАЛИЗ ДАННЫХ) ---
+$('#ai-analyze').onclick = async () => {
+  const r = range();
+  const dataToSend = [];
+  r.forEach(d => {
+    const k = dkey(d);
+    if (days[k]) {
+      dataToSend.push({ date: k, mood: days[k].m, body: days[k].p, emotions: days[k].e || [] });
+    }
+  });
+  if (dataToSend.length === 0) {
+    alert("Сначала отметь своё настроение в календаре!");
+    return;
+  }
+  const repDiv = $('#ai-report');
+  repDiv.style.display = 'block';
+  repDiv.textContent = "ИИ анализирует твои данные... ⏳";
+  $('#ai-analyze').disabled = true;
+  try {
+    const resp = await fetch('/api/analyze-data', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({data: JSON.stringify(dataToSend)})
+    });
+    if (!resp.ok) throw new Error('err');
+    const res = await resp.json();
+    repDiv.textContent = res.report;
+  } catch (e) {
+    repDiv.textContent = "Ошибка анализа. Попробуй позже.";
+  }
+  $('#ai-analyze').disabled = false;
 };
 </script>
 </body>
